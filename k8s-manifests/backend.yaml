@@ -14,13 +14,20 @@ spec:
     spec:
       containers:
         - name: backend
-          image: jenkins-web-backend:local  # We will build this directly into Minikube's Docker daemon
-          imagePullPolicy: Never            # Tells K8s to look inside the local daemon instead of Docker Hub
+          image: your_dockerhub_username/jenkins-web-backend:latest
           ports:
             - containerPort: 8000
           env:
-            - name: DATABASE_URL
-              value: postgresql://admin:password@postgres-service:5432/jenkins_db
+            - name: DB_USER
+              value: "admin"
+            - name: DB_PASSWORD
+              value: "password" # The Jenkinsfile will target and replace this specific value dynamically
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "jenkins_db"
 ---
 apiVersion: v1
 kind: Service
