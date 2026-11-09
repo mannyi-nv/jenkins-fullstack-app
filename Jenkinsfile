@@ -4,11 +4,11 @@ pipeline {
 
     environment {
         // dockerhub login info
-        REGISTRY_USER  = 'mannydevops' 
+        REGISTRY_USER  = 'mannydevops'
         BACKEND_IMAGE  = "${REGISTRY_USER}/jenkins-web-backend"
         FRONTEND_IMAGE = "${REGISTRY_USER}/jenkins-web-frontend"
         IMAGE_TAG      = "${BUILD_NUMBER}"
-        
+
         // extracts the masked credentials we saved in the Jenkins Web UI
         DOCKER_CREDS   = credentials('docker-cred')
         DB_PASS_ENV    = credentials('jenkins-app-db-cred')
@@ -42,11 +42,11 @@ pipeline {
                 echo 'Authenticating with remote Container Image Registry...'
                 // Logs in securely using the masked credential tokens
                 sh "echo \$DOCKER_CREDS_PSW | docker login -u \$DOCKER_CREDS_USR --password-stdin"
-                
+
                 echo "Compiling component docker definitions for version: v${IMAGE_TAG}"
                 sh "DOCKER_BUILDKIT=0 docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend"
                 sh "DOCKER_BUILDKIT=0 docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend"
-                
+
                 echo 'Pushing verified container images to external registry tier...'
                 sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
                 sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
@@ -60,7 +60,7 @@ pipeline {
                     echo 'Updating target image version descriptors in manifest...'
                     sh "sed -i 's|image: .*/jenkins-web-backend:.*|image: ${BACKEND_IMAGE}:${IMAGE_TAG}|g' k8s-manifests/backend.yaml"
                     sh "sed -i 's|image: .*/jenkins-web-frontend:.*|image: ${FRONTEND_IMAGE}:${IMAGE_TAG}|g' k8s-manifests/frontend.yaml"
-                    
+
                     echo 'Injecting masked database secrets into component manifests...'
                     // Dynamically overrides the plaintext 'password' placeholders before applying them to K8s
                     sh "sed -i 's/value: \"password\"/value: \"${DB_PASS_ENV}\"/g' k8s-manifests/postgres.yaml"
@@ -82,7 +82,7 @@ pipeline {
             echo "Successfully updated AWS infrastructure stack! Active build tag: v${IMAGE_TAG}"
         }
         failure {
-            echo "CI/CD execution loop halted. Rolling back or keeping previous stable build active."
+            echo 'CI/CD execution loop halted. Rolling back or keeping previous stable build active.'
         }
     }
 }
