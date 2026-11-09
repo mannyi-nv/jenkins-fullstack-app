@@ -3,15 +3,15 @@ pipeline {
     agent { label 'ubuntu linux' }
 
     environment {
-        // Change 'your_dockerhub_username' to your actual Docker Hub or image registry account name
+        // dockerhub login info
         REGISTRY_USER  = 'mannydevops' 
         BACKEND_IMAGE  = "${REGISTRY_USER}/jenkins-web-backend"
         FRONTEND_IMAGE = "${REGISTRY_USER}/jenkins-web-frontend"
         IMAGE_TAG      = "${BUILD_NUMBER}"
         
-        // 🔐 Securely extracts the masked credentials we saved in the Jenkins Web UI
-        DOCKER_CREDS   = credentials('DOCKER_HUB_CREDENTIALS')
-        DB_PASS_ENV    = credentials('JENKINS_APP_DB_PASSWORD')
+        // extracts the masked credentials we saved in the Jenkins Web UI
+        DOCKER_CREDS   = credentials('docker-cred')
+        DB_PASS_ENV    = credentials('jenkins-app-db-cred')
     }
 
     stages {
