@@ -1,5 +1,7 @@
 pipeline {
-    agent { label 'ubuntu linux' }
+    agent {
+        label 'ubuntu'
+    }
 
     environment {
         REGISTRY_USER  = 'mannydevops'
