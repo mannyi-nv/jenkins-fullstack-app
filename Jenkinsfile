@@ -1,34 +1,30 @@
+groovy
 pipeline {
-    // Force execution onto your dedicated AWS build agent instance
     agent { label 'ubuntu linux' }
 
     environment {
-        // dockerhub login info
         REGISTRY_USER  = 'mannydevops'
         BACKEND_IMAGE  = "${REGISTRY_USER}/jenkins-web-backend"
         FRONTEND_IMAGE = "${REGISTRY_USER}/jenkins-web-frontend"
         IMAGE_TAG      = "${BUILD_NUMBER}"
-
-        // extracts the masked credentials we saved in the Jenkins Web UI
-        DOCKER_CREDS   = credentials('docker-cred')
-        DB_PASS_ENV    = credentials('jenkins-app-db-cred')
     }
 
     stages {
-        stage('🧹 Workspace Preparation') {
+        stage('Workspace Preparation') {
             steps {
-                echo 'Cleaning up and auditing source repository layout...'
+                echo 'Cleaning workspace and auditing source repository...'
                 sh 'ls -la'
             }
         }
 
-        stage('🧪 Quality Verification') {
+        stage('Quality Verification') {
             parallel {
                 stage('Python API Linting') {
                     steps {
                         echo 'Auditing backend code modules...'
                     }
                 }
+
                 stage('Static HTML Checking') {
                     steps {
                         echo 'Auditing frontend structures...'
@@ -37,37 +33,86 @@ pipeline {
             }
         }
 
-        stage('📦 Secure Image Build & Push') {
+        stage('Secure Image Build & Push') {
             steps {
-                echo 'Authenticating with remote Container Image Registry...'
-                // Logs in securely using the masked credential tokens
-                sh "echo \$DOCKER_CREDS_PSW | docker login -u \$DOCKER_CREDS_USR --password-stdin"
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-cred',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+                    echo 'Authenticating with Docker Hub...'
 
-                echo "Compiling component docker definitions for version: v${IMAGE_TAG}"
-                sh "DOCKER_BUILDKIT=0 docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend"
-                sh "DOCKER_BUILDKIT=0 docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend"
+                    sh '''
+                        set +x
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            -u "$DOCKER_USER" \
+                            --password-stdin
+                    '''
 
-                echo 'Pushing verified container images to external registry tier...'
-                sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
-                sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                    echo "Building images with tag: ${IMAGE_TAG}"
+
+                    sh '''
+                        DOCKER_BUILDKIT=0 docker build \
+                            -t "$BACKEND_IMAGE:$IMAGE_TAG" ./backend
+
+                        DOCKER_BUILDKIT=0 docker build \
+                            -t "$FRONTEND_IMAGE:$IMAGE_TAG" ./frontend
+                    '''
+
+                    echo 'Pushing images to Docker Hub...'
+
+                    sh '''
+                        docker push "$BACKEND_IMAGE:$IMAGE_TAG"
+                        docker push "$FRONTEND_IMAGE:$IMAGE_TAG"
+                    '''
+                }
             }
         }
 
-        stage('🚀 Continuous GitOps Deployment') {
-            // Safely extracts your kubeconfig file into a temporary masked path to control your AWS K8s cluster
-            withCredentials([file(credentialsId: 'KUBERNETES_CLUSTER_CONFIG', variable: 'KUBECONFIG_FILE')]) {
-                steps {
-                    echo 'Updating target image version descriptors in manifest...'
-                    sh "sed -i 's|image: .*/jenkins-web-backend:.*|image: ${BACKEND_IMAGE}:${IMAGE_TAG}|g' k8s-manifests/backend.yaml"
-                    sh "sed -i 's|image: .*/jenkins-web-frontend:.*|image: ${FRONTEND_IMAGE}:${IMAGE_TAG}|g' k8s-manifests/frontend.yaml"
+        stage('Continuous GitOps Deployment') {
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'KUBERNETES_CLUSTER_CONFIG',
+                        variable: 'KUBECONFIG_FILE'
+                    ),
+                    string(
+                        credentialsId: 'jenkins-app-db-cred',
+                        variable: 'DB_PASSWORD'
+                    )
+                ]) {
+                    echo 'Updating Kubernetes image versions...'
 
-                    echo 'Injecting masked database secrets into component manifests...'
-                    // Dynamically overrides the plaintext 'password' placeholders before applying them to K8s
-                    sh "sed -i 's/value: \"password\"/value: \"${DB_PASS_ENV}\"/g' k8s-manifests/postgres.yaml"
-                    sh "sed -i 's/value: \"password\"/value: \"${DB_PASS_ENV}\"/g' k8s-manifests/backend.yaml"
+                    sh '''
+                        set +x
 
-                    echo 'Executing zero-downtime rolling update across active Kubernetes nodes...'
-                    sh "kubectl --kubeconfig=\$KUBECONFIG_FILE apply -f k8s-manifests/"
+                        sed -i "s|image: .*/jenkins-web-backend:.*|image: $BACKEND_IMAGE:$IMAGE_TAG|g" \
+                            k8s-manifests/backend.yaml
+
+                        sed -i "s|image: .*/jenkins-web-frontend:.*|image: $FRONTEND_IMAGE:$IMAGE_TAG|g" \
+                            k8s-manifests/frontend.yaml
+                    '''
+
+                    echo 'Injecting database credentials...'
+
+                    sh '''
+                        set +x
+
+                                sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
+                            k8s-manifests/postgres.yaml
+
+                                sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
+                            k8s-manifests/backend.yaml
+                    '''
+
+                    echo 'Applying Kubernetes manifests...'
+
+                    sh '''
+                        kubectl --kubeconfig="$KUBECONFIG_FILE" \
+                            apply -f k8s-manifests/
+                    '''
                 }
             }
         }
@@ -75,14 +120,16 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up build worker node authentication tokens...'
-            sh 'docker logout'
+            echo 'Cleaning up Docker authentication...'
+            sh 'docker logout || true'
         }
+
         success {
-            echo "Successfully updated AWS infrastructure stack! Active build tag: v${IMAGE_TAG}"
+            echo "Successfully deployed! Active build tag: v${IMAGE_TAG}"
         }
+
         failure {
-            echo 'CI/CD execution loop halted. Rolling back or keeping previous stable build active.'
+            echo 'CI/CD pipeline failed. Check the Jenkins console output.'
         }
     }
 }
