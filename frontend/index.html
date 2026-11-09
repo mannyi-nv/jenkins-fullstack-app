@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jenkins Web Tool Dashboard</title>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    <div class="container mx-auto max-w-5xl p-6">
+        <header class="flex justify-between items-center border-b border-slate-800 pb-4 mb-8">
+            <h1 class="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                🛠️ Jenkins Web Tool
+            </h1>
+            <span class="bg-emerald-500/10 text-emerald-400 text-xs px-2.5 py-1 rounded-full font-medium border border-emerald-500/20">
+                Connected to Cluster
+            </span>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Left Side: Add Job Form -->
+            <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-800/80 shadow-xl h-fit">
+                <h2 class="text-lg font-semibold mb-4 text-slate-200">Register New Jenkins Job</h2>
+                <form id="jobForm" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Job Name</label>
+                        <input type="text" id="jobName" required class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Job Type</label>
+                        <select id="jobType" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500">
+                            <option value="Freestyle">Freestyle Project</option>
+                            <option value="Pipeline">Pipeline</option>
+                            <option value="Multibranch">Multibranch Pipeline</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Git Repository URL</label>
+                        <input type="url" id="repoUrl" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-blue-500" placeholder="https://github.com...">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition shadow-lg shadow-blue-600/20 cursor-pointer">
+                        Add Job Entry
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right Side: Job Display List -->
+            <div class="md:col-span-2 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-200">Tracked Operations Profiles</h2>
+                <div id="jobsList" class="space-y-3">
+                    <div class="text-center py-8 text-slate-500 text-sm">Loading jobs from active instance...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Nginx forwards same-origin API requests to the backend service in Kubernetes.
+        const API_BASE = "http://192.168.224.142:9000/api";
+
+        async function fetchJobs() {
+            try {
+                const res = await fetch(`${API_BASE}/jobs`);
+                if (!res.ok) {
+                    throw new Error(`Backend returned HTTP ${res.status}`);
+                }
+                const jobs = await res.json();
+                const list = document.getElementById('jobsList');
+                list.innerHTML = jobs.length === 0 ? '<div class="text-center py-8 text-slate-500 text-sm">No jobs registered yet.</div>' : '';
+                
+                jobs.forEach(job => {
+                    list.innerHTML += `
+                        <div class="bg-slate-800/30 border border-slate-800 p-4 rounded-xl flex justify-between items-center hover:border-slate-700/50 transition">
+                            <div>
+                                <h3 class="font-semibold text-slate-100">${job.job_name}</h3>
+                                <p class="text-xs text-slate-400">${job.job_type} • ${job.repository_url || 'No Repository Linked'}</p>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-xs px-2.5 py-1 rounded-md font-mono ${job.last_run_status === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-700 text-slate-300'}">
+                                    ${job.last_run_status}
+                                </span>
+                                <button onclick="deleteJob(${job.id})" class="text-slate-500 hover:text-red-400 text-sm p-1 rounded transition cursor-pointer">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                document.getElementById('jobsList').textContent =
+                    `Error communicating with backend service: ${err.message}`;
+            }
+        }
+
+        document.getElementById('jobForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const payload = {
+                    job_name: document.getElementById('jobName').value,
+                    job_type: document.getElementById('jobType').value,
+                    repository_url: document.getElementById('repoUrl').value,
+                    is_active: true
+                };
+
+                const res = await fetch(`${API_BASE}/jobs`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const body = await res.json().catch(() => ({}));
+                    throw new Error(body.detail || `Backend returned HTTP ${res.status}`);
+                }
+
+                document.getElementById('jobForm').reset();
+                await fetchJobs();
+            } catch (err) {
+                document.getElementById('jobsList').textContent =
+                    `Couldn't add job: ${err.message}`;
+            }
+        });
+
+        async function deleteJob(id) {
+            try {
+                const res = await fetch(`${API_BASE}/jobs/${id}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    throw new Error(`Backend returned HTTP ${res.status}`);
+                }
+                fetchJobs();
+            } catch (err) {
+                document.getElementById('jobsList').textContent =
+                    `Couldn't delete job: ${err.message}`;
+            }
+        }
+
+        fetchJobs();
+    </script>
+</body>
+</html>
