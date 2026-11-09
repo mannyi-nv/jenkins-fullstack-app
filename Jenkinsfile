@@ -68,52 +68,52 @@ pipeline {
             }
         }
 
-    //     stage('Continuous GitOps Deployment') {
-    //         steps {
-    //             withCredentials([
-    //                 file(
-    //                     credentialsId: 'KUBERNETES_CLUSTER_CONFIG',
-    //                     variable: 'KUBECONFIG_FILE'
-    //                 ),
-    //                 string(
-    //                     credentialsId: 'jenkins-app-db-cred',
-    //                     variable: 'DB_PASSWORD'
-    //                 )
-    //             ]) {
-    //                 echo 'Updating Kubernetes image versions...'
+        // stage('Continuous GitOps Deployment') {
+        //     steps {
+        //         withCredentials([
+        //             file(
+        //                 credentialsId: 'KUBERNETES_CLUSTER_CONFIG',
+        //                 variable: 'KUBECONFIG_FILE'
+        //             ),
+        //             string(
+        //                 credentialsId: 'jenkins-app-db-cred',
+        //                 variable: 'DB_PASSWORD'
+        //             )
+        //         ]) {
+        //             echo 'Updating Kubernetes image versions...'
 
-    //                 sh '''
-    //                     set +x
+        //             sh '''
+        //                 set +x
 
-    //                     sed -i "s|image: .*/jenkins-web-backend:.*|image: $BACKEND_IMAGE:$IMAGE_TAG|g" \
-    //                         k8s-manifests/backend.yaml
+        //                 sed -i "s|image: .*/jenkins-web-backend:.*|image: $BACKEND_IMAGE:$IMAGE_TAG|g" \
+        //                     k8s-manifests/backend.yaml
 
-    //                     sed -i "s|image: .*/jenkins-web-frontend:.*|image: $FRONTEND_IMAGE:$IMAGE_TAG|g" \
-    //                         k8s-manifests/frontend.yaml
-    //                 '''
+        //                 sed -i "s|image: .*/jenkins-web-frontend:.*|image: $FRONTEND_IMAGE:$IMAGE_TAG|g" \
+        //                     k8s-manifests/frontend.yaml
+        //             '''
 
-    //                 echo 'Injecting database credentials...'
+        //             echo 'Injecting database credentials...'
 
-    //                 sh '''
-    //                     set +x
+        //             sh '''
+        //                 set +x
 
-    //                             sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
-    //                         k8s-manifests/postgres.yaml
+        //                         sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
+        //                     k8s-manifests/postgres.yaml
 
-    //                             sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
-    //                         k8s-manifests/backend.yaml
-    //                 '''
+        //                         sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
+        //                     k8s-manifests/backend.yaml
+        //             '''
 
-    //                 echo 'Applying Kubernetes manifests...'
+        //             echo 'Applying Kubernetes manifests...'
 
-    //                 sh '''
-    //                     kubectl --kubeconfig="$KUBECONFIG_FILE" \
-    //                         apply -f k8s-manifests/
-    //                 '''
-    //             }
-    //         }
-    //     }
-    // }
+        //             sh '''
+        //                 kubectl --kubeconfig="$KUBECONFIG_FILE" \
+        //                     apply -f k8s-manifests/
+        //             '''
+        //         }
+        //     }
+        // }
+    }
 
     post {
         always {
