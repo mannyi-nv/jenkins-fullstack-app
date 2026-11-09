@@ -4,10 +4,14 @@ pipeline {
     }
 
     environment {
+        // Docker Hub configuration
         REGISTRY_USER  = 'mannydevops'
         BACKEND_IMAGE  = "${REGISTRY_USER}/jenkins-web-backend"
         FRONTEND_IMAGE = "${REGISTRY_USER}/jenkins-web-frontend"
         IMAGE_TAG      = "${BUILD_NUMBER}"
+
+        // Docker Hub credentials (Jenkins Username/Password)
+        DOCKER_CREDS = credentials('docker-cred')
     }
 
     stages {
@@ -36,39 +40,31 @@ pipeline {
 
         stage('Secure Image Build & Push') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'docker-cred',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
-                    echo 'Authenticating with Docker Hub...'
+                echo 'Authenticating with Docker Hub...'
 
-                    sh '''
-                        set +x
-                        echo "$DOCKER_PASSWORD" | docker login \
-                            -u "$DOCKER_USER" \
-                            --password-stdin
-                    '''
+                sh '''
+                    set +x
+                    echo "$DOCKER_CREDS_PSW" | docker login \
+                        -u "$DOCKER_CREDS_USR" \
+                        --password-stdin
+                '''
 
-                    echo "Building images with tag: ${IMAGE_TAG}"
+                echo "Building images with tag: ${IMAGE_TAG}"
 
-                    sh '''
-                        DOCKER_BUILDKIT=0 docker build \
-                            -t "$BACKEND_IMAGE:$IMAGE_TAG" ./backend
+                sh '''
+                    DOCKER_BUILDKIT=0 docker build \
+                        -t "$BACKEND_IMAGE:$IMAGE_TAG" ./backend
 
-                        DOCKER_BUILDKIT=0 docker build \
-                            -t "$FRONTEND_IMAGE:$IMAGE_TAG" ./frontend
-                    '''
+                    DOCKER_BUILDKIT=0 docker build \
+                        -t "$FRONTEND_IMAGE:$IMAGE_TAG" ./frontend
+                '''
 
-                    echo 'Pushing images to Docker Hub...'
+                echo 'Pushing images to Docker Hub...'
 
-                    sh '''
-                        docker push "$BACKEND_IMAGE:$IMAGE_TAG"
-                        docker push "$FRONTEND_IMAGE:$IMAGE_TAG"
-                    '''
-                }
+                sh '''
+                    docker push "$BACKEND_IMAGE:$IMAGE_TAG"
+                    docker push "$FRONTEND_IMAGE:$IMAGE_TAG"
+                '''
             }
         }
 
