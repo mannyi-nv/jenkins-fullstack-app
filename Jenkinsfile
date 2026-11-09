@@ -4,7 +4,7 @@ pipeline {
 
     environment {
         // Change 'your_dockerhub_username' to your actual Docker Hub or image registry account name
-        REGISTRY_USER  = 'your_dockerhub_username' 
+        REGISTRY_USER  = 'mannydevops' 
         BACKEND_IMAGE  = "${REGISTRY_USER}/jenkins-web-backend"
         FRONTEND_IMAGE = "${REGISTRY_USER}/jenkins-web-frontend"
         IMAGE_TAG      = "${BUILD_NUMBER}"

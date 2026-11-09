@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: your_dockerhub_username/jenkins-web-backend:latest
+          image: mannydevops/jenkins-web-backend:latest
           ports:
             - containerPort: 8000
           env:

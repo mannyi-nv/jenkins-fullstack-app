@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: jenkins-web-frontend:local
+          image: mannydevops/jenkins-web-frontend:local
           imagePullPolicy: Never
           ports:
             - containerPort: 80
