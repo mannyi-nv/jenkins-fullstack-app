@@ -71,7 +71,7 @@ pipeline {
         stage('Continuous GitOps Deployment') {
             steps {
                 withCredentials([
-                    gitUsernamePassword(
+                    sshagent(
                         credentialsId: 'github-cred',
                         gitToolName: 'Default'
                     )
