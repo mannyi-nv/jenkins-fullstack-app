@@ -67,52 +67,65 @@ pipeline {
                 '''
             }
         }
+        
+        stage('Continuous GitOps Deployment') {
+            steps {
+                withCredentials([
+                    gitUsernamePassword(
+                        credentialsId: 'github-cred',
+                        gitToolName: 'Default'
+                    )
+                ]) {
+                    echo 'Cloning GitOps repository...'
 
-        // stage('Continuous GitOps Deployment') {
-        //     steps {
-        //         withCredentials([
-        //             file(
-        //                 credentialsId: 'KUBERNETES_CLUSTER_CONFIG',
-        //                 variable: 'KUBECONFIG_FILE'
-        //             ),
-        //             string(
-        //                 credentialsId: 'jenkins-app-db-cred',
-        //                 variable: 'DB_PASSWORD'
-        //             )
-        //         ]) {
-        //             echo 'Updating Kubernetes image versions...'
+                    sh '''
+                        set -eu
+                        rm -rf gitops
 
-        //             sh '''
-        //                 set +x
+                        git clone \
+                            --branch main \
+                            git@github.com:mannyi-nv/jenkins-fullstack-manifests.git \
+                            gitops
 
-        //                 sed -i "s|image: .*/jenkins-web-backend:.*|image: $BACKEND_IMAGE:$IMAGE_TAG|g" \
-        //                     k8s-manifests/backend.yaml
+                        cd gitops
 
-        //                 sed -i "s|image: .*/jenkins-web-frontend:.*|image: $FRONTEND_IMAGE:$IMAGE_TAG|g" \
-        //                     k8s-manifests/frontend.yaml
-        //             '''
+                        git config user.name "Jenkins CI"
+                        git config user.email "jenkins@localhost"
 
-        //             echo 'Injecting database credentials...'
+                        echo "Updating Kubernetes image versions..."
 
-        //             sh '''
-        //                 set +x
+                        sed -i -E \
+                            "s|(^[[:space:]]*image:[[:space:]]*).*jenkins-web-backend:[^[:space:]]*|\\1$BACKEND_IMAGE:$IMAGE_TAG|" \
+                            k8s-manifests/backend.yaml
 
-        //                         sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
-        //                     k8s-manifests/postgres.yaml
+                        sed -i -E \
+                            "s|(^[[:space:]]*image:[[:space:]]*).*jenkins-web-frontend:[^[:space:]]*|\\1$FRONTEND_IMAGE:$IMAGE_TAG|" \
+                            k8s-manifests/frontend.yaml
 
-        //                         sed -i "s|value: \\"password\\"|value: \\"$DB_PASSWORD\\"|g" \
-        //                     k8s-manifests/backend.yaml
-        //             '''
+                        echo "Checking manifest changes..."
 
-        //             echo 'Applying Kubernetes manifests...'
+                        git diff --check
 
-        //             sh '''
-        //                 kubectl --kubeconfig="$KUBECONFIG_FILE" \
-        //                     apply -f k8s-manifests/
-        //             '''
-        //         }
-        //     }
-        // }
+                        git add \
+                            k8s-manifests/backend.yaml \
+                            k8s-manifests/frontend.yaml
+
+                        if ! git diff --cached --quiet; then
+
+                            git commit -m "Update application images to $IMAGE_TAG"
+
+                            echo "Pushing changes to GitHub..."
+
+                            git push origin HEAD:main
+
+                        else
+                            echo "No manifest changes detected."
+                        fi
+                    '''
+                }
+            }
+        }
+
     }
 
     post {
