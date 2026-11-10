@@ -71,8 +71,8 @@ pipeline {
         stage('Continuous GitOps Deployment') {
             steps {
                 withCredentials([
-                    sshagent(
-                        credentialsId: 'github-cred',
+                    gitUsernamePassword(
+                        credentialsId: 'githab-pat-cred',
                         gitToolName: 'Default'
                     )
                 ]) {
@@ -84,7 +84,7 @@ pipeline {
 
                         git clone \
                             --branch main \
-                            git@github.com:mannyi-nv/jenkins-fullstack-manifests.git \
+                            https://github.com/mannyi-nv/jenkins-fullstack-manifests.git \
                             gitops
 
                         cd gitops
