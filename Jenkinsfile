@@ -12,6 +12,7 @@ pipeline {
 
         // Docker Hub credentials (Jenkins Username/Password)
         DOCKER_CREDS = credentials('docker-cred')
+        DB_PASS_ENV    = credentials('jenkins-app-db-cred')
     }
 
     stages {
