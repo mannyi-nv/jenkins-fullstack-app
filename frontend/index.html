@@ -55,8 +55,8 @@
     </div>
 
     <script>
-        // Nginx forwards same-origin API requests to the backend service in Kubernetes.
-        const API_BASE = "http://3.81.214.213:30000/api";
+        // Traefik routes same-origin API requests to the backend service in Kubernetes.
+        const API_BASE = "/api";
 
         async function fetchJobs() {
             try {
